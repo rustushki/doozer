@@ -13,7 +13,7 @@ func! CluName(cluName)
 	let s:curClu.name = a:cluName
 	let s:curClu.root = ""
 	let s:curClu.projects = []
-    let s:curClu.targets = {}
+	let s:curClu.targets = {}
 endfunc
 
 " CluRoot {{{2
@@ -48,9 +48,9 @@ command! -nargs=? PrjName call PrjName(<args>)
 func! PrjName(prjName)
 	let s:curPrj = {}
 	let s:curPrj.name = a:prjName
-    let s:curPrj.targets = {}
+	let s:curPrj.targets = {}
 	let s:curPrj.deps = []
-    let s:curPrj.cluParent = s:curClu
+	let s:curPrj.cluParent = s:curClu
 endfunc
 
 " PrjRoot {{{2
@@ -84,7 +84,7 @@ endfunc
 command! PrjSave call PrjSave()
 func! PrjSave()
 	let s:curClu.projects += [s:curPrj]
-    let s:curPrj = {}
+	let s:curPrj = {}
 endfunc
 
 " User Commands {{{1
@@ -97,8 +97,8 @@ func! DoTargetFromBuffer(target)
 	if !empty(l:prjRecs)
 		let l:name = l:prjRecs[0].name
 		call PrjDoTarget(l:name, a:target)
-    else
-        echo "Could not find project for current buffer."
+	else
+		echo "Could not find project for current buffer."
 	endif
 endfunc
 
@@ -111,8 +111,8 @@ func! DoCommandFromBuffer(target)
 	if !empty(l:prjRecs)
 		let l:name = l:prjRecs[0].name
 		call PrjDoCommand(l:name, a:target)
-    else
-        echo "Could not find project for current buffer."
+	else
+		echo "Could not find project for current buffer."
 	endif
 endfunc
 
@@ -124,26 +124,26 @@ func! PrjDoTarget(name, target)
 
 	" For each project in the Build Order, concatenate the target action
 	" command to the command string for that project.
-    for l:prjName in l:buildOrder
-        call s:DoTarget(l:prjName, a:target, 0)
+	for l:prjName in l:buildOrder
+		call s:DoTarget(l:prjName, a:target, 0)
 
-        if s:CountBuildErrors() != 0
-            break
-        endif
-    endfor
+		if s:CountBuildErrors() != 0
+			break
+		endif
+	endfor
 
 	" Open QuickFix window if any problems.
-    cwindow
+	cwindow
 
 	" Force Redraw the screen
-    execute "redraw!"
+	execute "redraw!"
 endfunc
 
 " PrjDoCommand {{{2
 " Given a project name and target name, shell execute the target's action.
 command! -nargs=? PrjDoCommand call PrjDoCommand(<args>)
 func! PrjDoCommand(name, target)
-    call s:DoTarget(a:name, a:target, 1)
+	call s:DoTarget(a:name, a:target, 1)
 endfunc
 
 " CluDoTarget {{{2
@@ -164,31 +164,31 @@ func! CluDoTarget(cluName, target)
 		endfor
 	endif
 
-    " Build the specified target for each of the cluster's projects.
-    let l:mergedBuildOrder = []
+	" Build the specified target for each of the cluster's projects.
+	let l:mergedBuildOrder = []
 	for l:projectName in l:targetedProjects
 		" Determine the Build Order.
 		let l:buildOrder = s:GetBuildOrder(l:projectName, a:target, [])
-        let l:mergedBuildOrder = s:MergeBuildOrder(l:mergedBuildOrder, l:buildOrder)
+		let l:mergedBuildOrder = s:MergeBuildOrder(l:mergedBuildOrder, l:buildOrder)
 	endfor
 
-    " For each project in the Build Order, concatenate the target action
-    " command to the command string for that project.
-    for l:prjName in l:mergedBuildOrder
-        "echom l:prjName
-        call s:DoTarget(l:prjName, a:target, 0)
+	" For each project in the Build Order, concatenate the target action
+	" command to the command string for that project.
+	for l:prjName in l:mergedBuildOrder
+		"echom l:prjName
+		call s:DoTarget(l:prjName, a:target, 0)
 
-        " Stop building if any errors.
-        if s:CountBuildErrors() != 0
-            break
-        endif
-    endfor
+		" Stop building if any errors.
+		if s:CountBuildErrors() != 0
+			break
+		endif
+	endfor
 
 	" Open QuickFix window if any problems.
-    cwindow
+	cwindow
 
 	" Force Redraw the screen
-    execute "redraw!"
+	execute "redraw!"
 endfunc
 
 " ShowDoozer {{{2
@@ -197,10 +197,10 @@ func! ShowDoozer()
 	if s:doozerWinShowing == 1
 		execute 'drop ' . s:doozerBufName
 
-	" Otherwise, make a new one.
+		" Otherwise, make a new one.
 	else
 		30vnew
-        execute "silent keepjumps hide edit " . s:doozerBufName
+		execute "silent keepjumps hide edit " . s:doozerBufName
 		setlocal buftype=nofile
 		setlocal noswapfile
 		setlocal nowrap
@@ -216,11 +216,11 @@ func! ShowDoozer()
 
 	" Build a list of projects.
 	let l:lines = []
-    for l:cluRec in s:clusters
-        for l:prjRec in l:cluRec.projects
+	for l:cluRec in s:clusters
+		for l:prjRec in l:cluRec.projects
 			call add(l:lines, l:prjRec.name)
-        endfor
-    endfor
+		endfor
+	endfor
 
 	" Add the List to the Buffer.
 	call setline(1, l:lines)
@@ -240,6 +240,7 @@ func! s:GetClusterByName(cluName)
 
 	return {}
 endfunc
+
 " GetBuildOrder {{{2
 " Given a Project Name, a Target and a pre-populated list of Projects, append
 " to the list of Projects a Build Order of Projects required to run the target
@@ -269,37 +270,36 @@ endfunc
 " Given two build orders, merge the second into the first, ensuring that each
 " project is only built once.  Return the merged build order.
 func! s:MergeBuildOrder(sortedBuildOrder, buildOrder)
-    " Copy the sorted build order argument so we can modify it.
-    let l:mergedBuildOrder = a:sortedBuildOrder
+	" Copy the sorted build order argument so we can modify it.
+	let l:mergedBuildOrder = a:sortedBuildOrder
 
-    " For each project in the provided build order, check the merged build
-    " order list for it. If it's not in there, add it.
-    for l:prjName in a:buildOrder
-        if index(l:mergedBuildOrder, l:prjName) == -1
-            let l:mergedBuildOrder = add(l:mergedBuildOrder, l:prjName)
-        endif
-    endfor
+	" For each project in the provided build order, check the merged build
+	" order list for it. If it's not in there, add it.
+	for l:prjName in a:buildOrder
+		if index(l:mergedBuildOrder, l:prjName) == -1
+			let l:mergedBuildOrder = add(l:mergedBuildOrder, l:prjName)
+		endif
+	endfor
 
-    " Return the properly merged build order.
-    return l:mergedBuildOrder
+	" Return the properly merged build order.
+	return l:mergedBuildOrder
 endfunc
+"
 " GetProjectRecordByName {{{2
-
 func! s:GetProjectRecordByName(prjName)
-    for l:cluRec in s:clusters
-        let l:projects = l:cluRec.projects
-        for l:prjRec in l:projects
-            if l:prjRec.name == a:prjName
-                return l:prjRec
-            endif
-        endfor
-    endfor
+	for l:cluRec in s:clusters
+		let l:projects = l:cluRec.projects
+		for l:prjRec in l:projects
+			if l:prjRec.name == a:prjName
+				return l:prjRec
+			endif
+		endfor
+	endfor
 
 	return {}
 endfunc
 
 " GetProjectRecordByRoot {{{2
-
 " Given a path, find the projects which contain this path.
 " TODO: Does not support the idea of subprojects. (i.e. a project which
 " contains another project inside its directory tree.
@@ -311,14 +311,14 @@ func! s:GetProjectRecordByRoot(path)
 
 	" Build a list of Project Records which would contain the path provided.
 	let l:prjMatching = []
-    for l:cluRec in s:clusters
-        let l:projects = l:cluRec.projects
-        for l:prjRec in l:projects
-            if match(l:path, l:prjRec.root) == 0
-                let l:prjMatching += [l:prjRec]
-            endif
-        endfor
-    endfor
+	for l:cluRec in s:clusters
+		let l:projects = l:cluRec.projects
+		for l:prjRec in l:projects
+			if match(l:path, l:prjRec.root) == 0
+				let l:prjMatching += [l:prjRec]
+			endif
+		endfor
+	endfor
 
 	return l:prjMatching
 endfunc
@@ -343,57 +343,57 @@ endfunc
 " Given a project name, target and whether the target is a command or not: cd
 " to the project root and execute the target.
 func! s:DoTarget(prjName, target, isCommand)
-    " Fetch the project record
-    let l:prjRec = s:GetProjectRecordByName(a:prjName)
+	" Fetch the project record
+	let l:prjRec = s:GetProjectRecordByName(a:prjName)
 
-    " Fetch the Target Action
-    let l:targetAction = s:GetTargetAction(l:prjRec, a:target)
+	" Fetch the Target Action
+	let l:targetAction = s:GetTargetAction(l:prjRec, a:target)
 
-    " Build the target if it exists.
-    if l:targetAction != ""
-        " cd to the project
-        let l:origDir = getcwd()
-        execute 'cd ' . l:prjRec.root
+	" Build the target if it exists.
+	if l:targetAction != ""
+		" cd to the project
+		let l:origDir = getcwd()
+		execute 'cd ' . l:prjRec.root
 
-        " Do the target as a build target or command depending on the
-        " isCommand flag.
-        let l:executor = ""
-        if a:isCommand
-            let l:executor = '!'
-        else
-            let l:executor = 'silent! make'
-        endif
+		" Do the target as a build target or command depending on the
+		" isCommand flag.
+		let l:executor = ""
+		if a:isCommand
+			let l:executor = '!'
+		else
+			let l:executor = 'silent! make'
+		endif
 
-        " Run the target action.
-        execute l:executor . ' ' . l:targetAction
+		" Run the target action.
+		execute l:executor . ' ' . l:targetAction
 
-        " cd back to the original directory.
-        execute 'cd ' . l:origDir
-    endif
+		" cd back to the original directory.
+		execute 'cd ' . l:origDir
+	endif
 endfunc
 
 " GetTargetAction {{{2
 func! s:GetTargetAction(prjRec, target)
-    if has_key(a:prjRec.targets, a:target)
-        return a:prjRec.targets[a:target]
-    elseif has_key(a:prjRec.cluParent.targets, a:target)
-        return a:prjRec.cluParent.targets[a:target]
-    endif
+	if has_key(a:prjRec.targets, a:target)
+		return a:prjRec.targets[a:target]
+	elseif has_key(a:prjRec.cluParent.targets, a:target)
+		return a:prjRec.cluParent.targets[a:target]
+	endif
 
-    return ""
+	return ""
 endfunc
 
 " CountBuildErrors {{{2
 func! s:CountBuildErrors()
-    let l:count = 0
+	let l:count = 0
 
-    for l:qfrec in getqflist()
-        if l:qfrec.bufnr != 0
-            let l:count += 1
-        endif
-    endfor
+	for l:qfrec in getqflist()
+		if l:qfrec.bufnr != 0
+			let l:count += 1
+		endif
+	endfor
 
-    return l:count
+	return l:count
 endfunc
 
 " Setup {{{2
