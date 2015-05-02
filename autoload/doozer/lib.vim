@@ -1,6 +1,7 @@
 let s:clusters = []
 let s:doozerBufName = "[doozer]"
 let s:doozerWinShowing = 0
+let s:queue = []
 
 autocmd VimEnter * call doozer#lib#setup()
 
@@ -110,14 +111,12 @@ func! doozer#lib#prjDoTarget(name, target)
 	" Determine the Build Order.
 	let l:buildOrder = doozer#lib#getBuildOrder(a:name, a:target, [])
 
-	" For each project in the Build Order, concatenate the target action
-	" command to the command string for that project.
+	" Queue each project in the build order for later execution.
 	for l:prjName in l:buildOrder
-		" Exec the target on the project, but stop if any errors.
-		if doozer#lib#doTarget(l:prjName, a:target, 0) != 0
-			break
-		endif
+		call doozer#lib#queue(a:name, a:target, 0)
 	endfor
+
+	call doozer#lib#execQueue()
 
 	" Open QuickFix window if any problems.
 	cwindow
@@ -129,7 +128,44 @@ endfunc
 " doozer#lib#prjDoCommand {{{2
 " Given a project name and target name, shell execute the target's action.
 func! doozer#lib#prjDoCommand(name, target)
-	call doozer#lib#doTarget(a:name, a:target, 1)
+	call doozer#lib#queue(a:name, a:target, 1)
+	call doozer#lib#execQueue()
+endfunc
+
+" doozer#lib#queue {{{2
+" Queue a job for later execution by execQueue().
+func! doozer#lib#queue(name, target, isCommand)
+	let l:job           = {}
+	let l:job.name      = a:name
+	let l:job.target    = a:target
+	let l:job.isCommand = a:isCommand
+	call add(s:queue, l:job)
+endfunc
+
+" doozer#lib#dequeue {{{2
+" Dequeue a job (presumably for execution).
+func! doozer#lib#dequeue()
+	" Retrieve the first element.
+	let l:job = s:queue[0]
+
+	" Chop off the first element.
+	let s:queue = s:queue[1:-1]
+
+	return l:job
+endfunc
+
+" doozer#lib#execQueue {{{2
+" Dequeue each job from the job queue and execute them in order.
+func! doozer#lib#execQueue()
+	while len(s:queue) > 0
+		let l:job = doozer#lib#dequeue()
+		if l:job != {}
+			" Exec the target on the project, but stop if any errors.
+			if doozer#lib#doTarget(l:job.name, l:job.target, l:job.isCommand) > 0
+				break
+			endif
+		endif
+	endwhile
 endfunc
 
 " doozer#lib#cluDoTarget {{{2
@@ -151,20 +187,19 @@ func! doozer#lib#cluDoTarget(cluName, target)
 
 	" Build the specified target for each of the cluster's projects.
 	let l:mergedBuildOrder = []
-	for l:projectName in l:targetedProjects
+	for l:prjName in l:targetedProjects
 		" Determine the Build Order.
-		let l:buildOrder = doozer#lib#getBuildOrder(l:projectName, a:target, [])
+		let l:buildOrder = doozer#lib#getBuildOrder(l:prjName, a:target, [])
 		let l:mergedBuildOrder = doozer#lib#mergeBuildOrder(l:mergedBuildOrder, l:buildOrder)
 	endfor
 
-	" For each project in the Build Order, concatenate the target action
-	" command to the command string for that project.
+	" Queue each project in the build order for later execution.
 	for l:prjName in l:mergedBuildOrder
-		" Exec the target on the project, but stop if any errors.
-		if doozer#lib#doTarget(l:prjName, a:target, 0) != 0
-			break
-		endif
+		call doozer#lib#queue(l:prjName, a:target, 0)
 	endfor
+
+	" Execute the projects in order.
+	call doozer#lib#execQueue()
 
 	" Open QuickFix window if any problems.
 	cwindow
