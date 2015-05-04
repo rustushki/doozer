@@ -1,7 +1,6 @@
 let s:clusters = []
 let s:doozerBufName = "[doozer]"
 let s:doozerWinShowing = 0
-let s:queue = []
 
 autocmd VimEnter * call doozer#lib#setup()
 
@@ -112,11 +111,12 @@ func! doozer#lib#prjDoTarget(name, target)
 	let l:buildOrder = doozer#lib#getBuildOrder(a:name, a:target, [])
 
 	" Queue each project in the build order for later execution.
-	for l:prjName in l:buildOrder
-		call doozer#lib#queue(a:name, a:target, 0)
+	for l:prjRec in l:buildOrder
+		let l:targetAction = doozer#lib#getTargetAction(l:prjRec, a:target)
+		call doozer#build#queue(l:prjRec.name, l:targetAction, l:prjRec.root, 0)
 	endfor
 
-	call doozer#lib#execQueue()
+	call doozer#build#execQueue()
 
 	" Open QuickFix window if any problems.
 	cwindow
@@ -128,44 +128,10 @@ endfunc
 " doozer#lib#prjDoCommand {{{2
 " Given a project name and target name, shell execute the target's action.
 func! doozer#lib#prjDoCommand(name, target)
-	call doozer#lib#queue(a:name, a:target, 1)
-	call doozer#lib#execQueue()
-endfunc
-
-" doozer#lib#queue {{{2
-" Queue a job for later execution by execQueue().
-func! doozer#lib#queue(name, target, isCommand)
-	let l:job           = {}
-	let l:job.name      = a:name
-	let l:job.target    = a:target
-	let l:job.isCommand = a:isCommand
-	call add(s:queue, l:job)
-endfunc
-
-" doozer#lib#dequeue {{{2
-" Dequeue a job (presumably for execution).
-func! doozer#lib#dequeue()
-	" Retrieve the first element.
-	let l:job = s:queue[0]
-
-	" Chop off the first element.
-	let s:queue = s:queue[1:-1]
-
-	return l:job
-endfunc
-
-" doozer#lib#execQueue {{{2
-" Dequeue each job from the job queue and execute them in order.
-func! doozer#lib#execQueue()
-	while len(s:queue) > 0
-		let l:job = doozer#lib#dequeue()
-		if l:job != {}
-			" Exec the target on the project, but stop if any errors.
-			if doozer#lib#doTarget(l:job.name, l:job.target, l:job.isCommand) > 0
-				break
-			endif
-		endif
-	endwhile
+	let l:prjRec = doozer#lib#getProjectRecordByName(a:name)
+	let l:targetAction = doozer#lib#getTargetAction(l:prjRec, a:target)
+	call doozer#build#queue(l:prjRec.name, l:targetAction, l:prjRec.root, 1)
+	call doozer#build#execQueue()
 endfunc
 
 " doozer#lib#cluDoTarget {{{2
@@ -194,12 +160,13 @@ func! doozer#lib#cluDoTarget(cluName, target)
 	endfor
 
 	" Queue each project in the build order for later execution.
-	for l:prjName in l:mergedBuildOrder
-		call doozer#lib#queue(l:prjName, a:target, 0)
+	for l:prjRec in l:mergedBuildOrder
+		let l:targetAction = doozer#lib#getTargetAction(l:prjRec, a:target)
+		call doozer#build#queue(l:prjRec.name, l:targetAction, l:prjRec.root, 0)
 	endfor
 
 	" Execute the projects in order.
-	call doozer#lib#execQueue()
+	call doozer#build#execQueue()
 
 	" Open QuickFix window if any problems.
 	cwindow
@@ -266,21 +233,23 @@ endfunc
 " function to return a list containing only the provided project.
 func! doozer#lib#getBuildOrder(name, target, buildOrder)
 	let l:buildOrder = a:buildOrder
+	let l:prjRec = doozer#lib#getProjectRecordByName(a:name)
 
-	" Build Order only works with the special 'build' target.
-	if a:target == "build"
-		let l:prjRec = doozer#lib#getProjectRecordByName(a:name)
-		if l:prjRec != {}
+	if l:prjRec != {}
+		" Build Order only works with the special 'build' target.
+		if a:target == "build"
 			for l:prjDep in l:prjRec.deps
 				if index(l:buildOrder, l:prjDep) < 0
 					let l:buildOrder = doozer#lib#getBuildOrder(l:prjDep, a:target, l:buildOrder) 
 				endif
 			endfor
 		endif
+
+		" Lastly, add the provided project to the build order.
+		call add(l:buildOrder, l:prjRec)
 	endif
 
-	" Lastly, add the provided project to the build order.
-	return add(l:buildOrder, a:name)
+	return l:buildOrder
 endfunc
 
 " doozer#lib#mergeBuildOrder
@@ -292,9 +261,9 @@ func! doozer#lib#mergeBuildOrder(sortedBuildOrder, buildOrder)
 
 	" For each project in the provided build order, check the merged build
 	" order list for it. If it's not in there, add it.
-	for l:prjName in a:buildOrder
-		if index(l:mergedBuildOrder, l:prjName) == -1
-			let l:mergedBuildOrder = add(l:mergedBuildOrder, l:prjName)
+	for l:prjRec in a:buildOrder
+		if index(l:mergedBuildOrder, l:prjRec) == -1
+			let l:mergedBuildOrder = add(l:mergedBuildOrder, l:prjRec)
 		endif
 	endfor
 
@@ -340,58 +309,6 @@ func! doozer#lib#getProjectRecordByRoot(path)
 	return l:prjMatching
 endfunc
 
-" doozer#lib#executeCmd {{{2
-" Given a shell command, execute it.  Prefer Dispatch if its available,
-" otherwise, just shell escape and execute the command.
-func! doozer#lib#executeCmd(cmd)
-	" Select a runner.
-	" Use vim-dispatch if its available, otherwise use the standard 'bang' to
-	" shell execute the command.
-	let l:runner = "!"
-	if exists(":Dispatch")
-		let l:runner = "silent! Dispatch"
-	endif
-
-	" Build the Project
-	exec l:runner . " " . a:cmd
-endfunc
-
-" doozer#lib#doTarget {{{2
-" Given a project name, target and whether the target is a command or not: cd
-" to the project root and execute the target.  Return count of errors
-" generated by the target.
-func! doozer#lib#doTarget(prjName, target, isCommand)
-	" Fetch the project record
-	let l:prjRec = doozer#lib#getProjectRecordByName(a:prjName)
-
-	" Fetch the Target Action
-	let l:targetAction = doozer#lib#getTargetAction(l:prjRec, a:target)
-
-	" Build the target if it exists.
-	if l:targetAction != ""
-		" cd to the project
-		let l:origDir = getcwd()
-		execute 'cd ' . l:prjRec.root
-
-		" Do the target as a build target or command depending on the
-		" isCommand flag.
-		let l:executor = ""
-		if a:isCommand
-			let l:executor = '!'
-		else
-			let l:executor = 'silent! make'
-		endif
-
-		" Run the target action.
-		execute l:executor . ' ' . l:targetAction
-
-		" cd back to the original directory.
-		execute 'cd ' . l:origDir
-	endif
-
-	return doozer#lib#countBuildErrors()
-endfunc
-
 " doozer#lib#getTargetAction {{{2
 func! doozer#lib#getTargetAction(prjRec, target)
 	if has_key(a:prjRec.targets, a:target)
@@ -401,19 +318,6 @@ func! doozer#lib#getTargetAction(prjRec, target)
 	endif
 
 	return ""
-endfunc
-
-" doozer#lib#countBuildErrors {{{2
-func! doozer#lib#countBuildErrors()
-	let l:count = 0
-
-	for l:qfrec in getqflist()
-		if l:qfrec.bufnr != 0
-			let l:count += 1
-		endif
-	endfor
-
-	return l:count
 endfunc
 
 " doozer#lib#setup {{{2
