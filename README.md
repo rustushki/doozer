@@ -18,6 +18,7 @@ Features
 - Project build by current buffer.
 - Ad-hoc, non-build project targets and shell commands.
 - Simple Syntax
+- Asynchronous Builds (Neovim only)
 
 Example
 -------
