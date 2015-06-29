@@ -1,6 +1,7 @@
 command! -nargs=? CluName             call doozer#lib#cluname(<args>)
 command! -nargs=? CluRoot             call doozer#lib#cluroot(<args>)
 command! -nargs=? CluTarget           call doozer#lib#clutarget(<args>)
+command! -nargs=? CluExecFrom         call doozer#lib#cluexecfrom(<args>)
 command! -nargs=0 CluSave             call doozer#lib#clusave()
 command! -nargs=? PrjName             call doozer#lib#prjname(<args>)
 command! -nargs=? PrjRoot             call doozer#lib#prjroot(<args>)

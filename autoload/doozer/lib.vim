@@ -12,6 +12,7 @@ func! doozer#lib#cluname(cluName)
 	let s:curClu.name = a:cluName
 	let s:curClu.root = ""
 	let s:curClu.projects = []
+	let s:curClu.execFrom = ""
 	let s:curClu.targets = {}
 endfunc
 
@@ -30,6 +31,14 @@ func! doozer#lib#clutarget(cluTargetName, cluTargetAction)
 	let s:curClu.targets[a:cluTargetName] = a:cluTargetAction
 endfunc
 
+" doozer#lib#cluexecfrom {{{2
+" Sets the default execution location for all projects in the cluster.  This
+" is the directory in which the command or target will be executed.  If empty,
+" Doozer will assume that PrjRoot is the ExecFrom directory.
+func! doozer#lib#cluexecfrom(cluExecFrom)
+	let s:curClu.execFrom = a:cluExecFrom
+endfunc
+
 " doozer#lib#clusave {{{2
 " Adds the Cluster Record currently edited to the list of clusters.  The
 " Cluster will no longer be editable after this command.
@@ -45,7 +54,17 @@ func! doozer#lib#prjname(prjName)
 	let s:curPrj.name = a:prjName
 	let s:curPrj.targets = {}
 	let s:curPrj.deps = []
+	let s:curPrj.execFrom = s:curClu.execFrom
 	let s:curPrj.cluParent = s:curClu
+endfunc
+
+" doozer#lib#prjexecfrom {{{2
+" Indicates the directory from which all commands and targets for this project
+" will be run.  If this method is not called, the execFrom property will be
+" inherited from the cluster's execFrom.  If that is empty, it will be
+" the root directory.
+func! doozer#lib#prjexecfrom(execFrom)
+	let s:curPrj.execFrom = a:execFrom
 endfunc
 
 " doozer#lib#prjroot {{{2
@@ -55,6 +74,12 @@ endfunc
 func! doozer#lib#prjroot(prjRoot)
 	let l:actualRoot = s:curClu.root . '/' . a:prjRoot
 	let s:curPrj.root = fnamemodify(l:actualRoot, ":p")
+
+	" Default the execFrom directory to the project root if the execFrom
+	" directory is empty.
+	if (s:curPrj.execFrom == "")
+		let s:curPrj.execFrom = a:prjRoot
+	endif
 endfunc
 
 " doozer#lib#prjtarget {{{2
@@ -113,7 +138,7 @@ func! doozer#lib#prjDoTarget(name, target)
 	" Queue each project in the build order for later execution.
 	for l:prjRec in l:buildOrder
 		let l:targetAction = doozer#lib#getTargetAction(l:prjRec, a:target)
-		call doozer#build#queue(l:prjRec.name, l:targetAction, l:prjRec.root, 0)
+		call doozer#build#queue(l:prjRec.name, l:targetAction, l:prjRec.root, l:prjRec.execFrom, 0)
 	endfor
 
 	call doozer#build#execQueue()
@@ -130,7 +155,7 @@ endfunc
 func! doozer#lib#prjDoCommand(name, target)
 	let l:prjRec = doozer#lib#getProjectRecordByName(a:name)
 	let l:targetAction = doozer#lib#getTargetAction(l:prjRec, a:target)
-	call doozer#build#queue(l:prjRec.name, l:targetAction, l:prjRec.root, 1)
+	call doozer#build#queue(l:prjRec.name, l:targetAction, l:prjRec.root, l:prjRec.execFrom, 1)
 	call doozer#build#execQueue()
 endfunc
 

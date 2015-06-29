@@ -49,23 +49,23 @@ function! doozer#build#jobExitHandler(jobId, data, event)
 	if l:job != {}
 		" cd to the project
 		let s:origDir = getcwd()
-		execute 'cd ' . l:job.root
+		execute 'cd ' . l:job.execFrom
 
 		" Set up the job callbacks.
 		let l:callbacks = {
-			\ 'on_stdout': function('doozer#build#jobOutputHandler'),
-			\ 'on_stderr': function('doozer#build#jobOutputHandler'),
-			\ 'on_exit': function('doozer#build#jobExitHandler')
-			\ }
+					\ 'on_stdout': function('doozer#build#jobOutputHandler'),
+					\ 'on_stderr': function('doozer#build#jobOutputHandler'),
+					\ 'on_exit': function('doozer#build#jobExitHandler')
+					\ }
 
 		" Fetch the Target Action
 		let l:targetAction = l:job.targetAction
 
 		echom "building " . l:job.name
 		call jobstart(['sh', '-c', &makeprg . ' ' . l:targetAction], l:callbacks)
-	
-	" If there are no jobs left to execute, then all must have built OK.  It's
-	" safe to close the QuickFix list.
+
+		" If there are no jobs left to execute, then all must have built OK.  It's
+		" safe to close the QuickFix list.
 	else
 		cclose
 	endif
@@ -74,12 +74,13 @@ endfunction
 
 " doozer#build#queue {{{2
 " Queue a job for later execution by execQueue().
-func! doozer#build#queue(name, targetAction, root, isCommand)
+func! doozer#build#queue(name, targetAction, root, execFrom, isCommand)
 	let l:job              = {}
 	let l:job.name         = a:name
 	let l:job.targetAction = a:targetAction
 	let l:job.root         = a:root
 	let l:job.isCommand    = a:isCommand
+	let l:job.execFrom     = a:execFrom
 	call add(s:queue, l:job)
 endfunc
 
@@ -108,11 +109,13 @@ endfunc
 " doozer#build#execQueue {{{2
 " Dequeue each job from the job queue and execute them in order.
 func! doozer#build#execQueue()
+	let l:isNextAsync = !s:queue[0].isCommand
+
 	" Neovim.
-	if has('nvim')
+	if has('nvim') && l:isNextAsync
 		call doozer#build#jobExitHandler(-1, -1, -1)
 
-	" Normal Vim.
+		" Normal Vim.
 	else
 		while len(s:queue) > 0
 			let l:job = doozer#build#dequeue()
@@ -139,7 +142,7 @@ func! doozer#build#doJob(job)
 	if l:targetAction != ""
 		" cd to the project
 		let s:origDir = getcwd()
-		execute 'cd ' . a:job.root
+		execute 'cd ' . a:job.execFrom
 
 		" Do the target as a build target or command depending on the
 		" isCommand flag.
